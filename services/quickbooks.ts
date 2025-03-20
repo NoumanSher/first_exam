@@ -1,6 +1,7 @@
 // services/quickbooks.ts
 import axios from 'axios';
 import { QuickBooksAuth, Invoice } from '../types';
+import { Buffer } from 'buffer';
 
 const QB_CLIENT_ID = process.env.NEXT_PUBLIC_QUICKBOOKS_CLIENT_ID;
 const QB_CLIENT_SECRET = process.env.QUICKBOOKS_CLIENT_SECRET;
@@ -27,44 +28,22 @@ export function initiateQuickBooksAuth() {
 }
 
 /**
- * Handle the OAuth callback and exchange authorization code for tokens
+ * Process auth data from URL
  */
-export async function handleQuickBooksCallback(code: string, realmId: string): Promise<QuickBooksAuth> {
-  const tokenUrl = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
-  
-  // Exchange authorization code for tokens
-  const response = await axios.post(
-    tokenUrl,
-    new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: REDIRECT_URI,
-    }).toString(),
-    {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString('base64')}`,
-      },
-    }
-  );
-  
-  // Calculate token expiration
-  const expiresAt = new Date();
-  expiresAt.setSeconds(expiresAt.getSeconds() + response.data.expires_in);
-  
-  // Create auth object
-  const auth: QuickBooksAuth = {
-    accessToken: response.data.access_token,
-    refreshToken: response.data.refresh_token,
-    expiresAt,
-    realmId,
-  };
-  
-  // Store auth in secure cookie or localStorage
-  // In a real app, you would securely store these tokens
-  localStorage.setItem('quickbooks_auth', JSON.stringify(auth));
-  
-  return auth;
+export function processAuthFromURL(authParam: string): QuickBooksAuth | null {
+  try {
+    const authData = JSON.parse(decodeURIComponent(authParam)) as QuickBooksAuth;
+    // Convert ISO date string back to Date object
+    authData.expiresAt = new Date(authData.expiresAt);
+    
+    // Store auth in localStorage
+    localStorage.setItem('quickbooks_auth', JSON.stringify(authData));
+    
+    return authData;
+  } catch (error) {
+    console.error('Error processing auth data:', error);
+    return null;
+  }
 }
 
 /**

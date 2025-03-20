@@ -1,7 +1,7 @@
 // components/ChatInterface.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, QuickBooksAuth } from '../types';
-import { generateAIResponse } from '../services/ai.ts';
+import { generateAIResponse } from '../services/ai';
 import { v4 as uuidv4 } from 'uuid'; // You'll need to install this package
 
 interface ChatInterfaceProps {

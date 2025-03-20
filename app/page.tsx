@@ -1,17 +1,32 @@
 // pages/index.tsx
+'use client'
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Head from 'next/head';
 import ChatInterface from '../components/ChatInterface';
 import { QuickBooksAuth } from '../types';
-import { initiateQuickBooksAuth } from '../services/quickbooks.ts';
+import { initiateQuickBooksAuth, processAuthFromURL } from '../services/quickbooks';
 
 export default function Home() {
   const [quickBooksAuth, setQuickBooksAuth] = useState<QuickBooksAuth | undefined>(undefined);
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Check for stored QuickBooks auth on page load
   useEffect(() => {
+    // First check if we have auth data in the URL
+    const authParam = searchParams.get('auth');
+    if (authParam) {
+      const authData = processAuthFromURL(authParam);
+      if (authData) {
+        setQuickBooksAuth(authData);
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+    }
+
+    // Otherwise check localStorage
     const storedAuth = localStorage.getItem('quickbooks_auth');
     if (storedAuth) {
       try {
@@ -24,32 +39,7 @@ export default function Home() {
         console.error('Error parsing stored QuickBooks auth:', error);
       }
     }
-  }, []);
-  
-  // Handle QuickBooks OAuth code in URL (after callback)
-  useEffect(() => {
-    const { code, realmId, state } = router.query;
-    
-    if (code && realmId && typeof code === 'string' && typeof realmId === 'string') {
-      // This would typically be handled in an API route
-      // For the interview, we're doing it client-side for simplicity
-      const handleCallback = async () => {
-        try {
-          // This import is done dynamically to avoid circular dependencies
-          const { handleQuickBooksCallback } = await import('../services/quickbooks');
-          const auth = await handleQuickBooksCallback(code, realmId);
-          setQuickBooksAuth(auth);
-          
-          // Remove query params from URL for cleanliness
-          router.replace('/', undefined, { shallow: true });
-        } catch (error) {
-          console.error('Error handling QuickBooks callback:', error);
-        }
-      };
-      
-      handleCallback();
-    }
-  }, [router.query, router]);
+  }, [searchParams]);
   
   const handleConnectQuickBooks = () => {
     initiateQuickBooksAuth();
